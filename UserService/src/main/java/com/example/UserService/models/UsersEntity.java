@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "users")
 @Data
@@ -32,4 +34,12 @@ public class UsersEntity {
 
     @Column(nullable = false)
     private String role;
+
+    @Builder.Default
+    private boolean verified = false;
+
+    @Column(unique = true)
+    private String verificationToken;
+
+    private LocalDateTime tokenExpiry;
 }

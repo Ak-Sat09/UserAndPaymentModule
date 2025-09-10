@@ -6,4 +6,6 @@ import com.example.UserService.models.UsersEntity;
 
 public interface UserRepo extends JpaRepository<UsersEntity, Long> {
     UsersEntity findByEmail(String email);
+
+    UsersEntity findByVerificationToken(String token);
 }

@@ -9,4 +9,6 @@ public interface UserService {
     ApiResponseDTO<?> login(UserRequestDto request);
 
     public UserRequestDto updateUserRole(String email, String newRole);
+
+    public ApiResponseDTO<?> verifyAccount(String token) throws Exception;
 }

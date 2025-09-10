@@ -1,5 +1,8 @@
 package com.example.UserService.services.impl;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +22,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepo userRepo;
     private final JwtUtils jwtUtils;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final EmailService emailService;
 
     @Override
     public ApiResponseDTO<?> register(UserRequestDto request) {
@@ -29,19 +33,35 @@ public class UserServiceImpl implements UserService {
                     .build();
         }
 
+        // 1. Generate token
+        String token = UUID.randomUUID().toString();
+
+        // 2. Build user with verification info
         UsersEntity user = UsersEntity.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role("USER")
+                .verified(false) // default
+                .verificationToken(token)
+                .tokenExpiry(LocalDateTime.now().plusMinutes(15))
                 .build();
 
+        // 3. Save user
         userRepo.save(user);
 
+        // 4. Send email
+        String link = "http://localhost:8080/api/users/verify?token=" + token;
+        emailService.send(
+                user.getEmail(),
+                "Verify your account",
+                "Hello " + user.getName() + ",\n\nClick the link below to verify your account:\n" + link);
+
+        // 5. Response
         return ApiResponseDTO.builder()
                 .success(true)
-                .message("User registered successfully")
-                .data(user)
+                .message("User registered successfully. Please check your email to verify your account.")
+                .data(null) // ⚠ don’t return password or token
                 .build();
     }
 
@@ -63,11 +83,18 @@ public class UserServiceImpl implements UserService {
                     .build();
         }
 
+        if (!user.isVerified()) {
+            return ApiResponseDTO.builder()
+                    .success(false)
+                    .message("Please verify your email before logging in.")
+                    .build();
+        }
+
+        // Generate JWT token after verification
         String token = jwtUtils.generateToken(
                 user.getEmail(),
                 String.valueOf(user.getId()),
-                user.getRole() // 👈 now pass role
-        );
+                user.getRole());
 
         return ApiResponseDTO.builder()
                 .success(true)
@@ -96,4 +123,28 @@ public class UserServiceImpl implements UserService {
                 .role(updatedUser.getRole())
                 .build();
     }
+
+    @Override
+    public ApiResponseDTO<?> verifyAccount(String token) {
+        UsersEntity user = userRepo.findByVerificationToken(token);
+
+        if (user == null || user.getTokenExpiry().isBefore(LocalDateTime.now())) {
+            return ApiResponseDTO.builder()
+                    .success(false)
+                    .message("Invalid or expired verification link")
+                    .build();
+        }
+
+        user.setVerified(true);
+        user.setVerificationToken(null);
+        user.setTokenExpiry(null);
+
+        userRepo.save(user);
+
+        return ApiResponseDTO.builder()
+                .success(true)
+                .message("Email verified successfully! You can now login.")
+                .build();
+    }
+
 }

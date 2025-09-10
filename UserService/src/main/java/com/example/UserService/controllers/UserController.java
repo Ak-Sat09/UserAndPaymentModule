@@ -95,4 +95,10 @@ public class UserController {
                         .build());
     }
 
+    @GetMapping("/verify")
+    public ResponseEntity<ApiResponseDTO<?>> verifyEmail(@RequestParam String token) throws Exception {
+        ApiResponseDTO<?> response = userService.verifyAccount(token);
+        return ResponseEntity.ok(response);
+    }
+
 }
